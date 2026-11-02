@@ -1,0 +1,29 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DangerousWildcardAdmin",
+      "Effect": "Allow",
+      "Action": "*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "PrivilegeEscalationViaPolicyVersion",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreatePolicyVersion",
+        "iam:SetDefaultPolicyVersion"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "PassRolePrivilegeEscalation",
+      "Effect": "Allow",
+      "Action": [
+        "iam:PassRole",
+        "ec2:RunInstances"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
