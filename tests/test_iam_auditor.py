@@ -79,6 +79,58 @@ class TestIAMAuditor(unittest.TestCase):
         self.assertNotIn("*", remediated_stmts[0]["Action"])
         self.assertIn("aws:MultiFactorAuthPresent", str(remediated_stmts[0].get("Condition")))
 
+    def test_catalog_has_21_vectors(self):
+        from iam_auditor import PRIVILEGE_ESCALATION_VECTORS
+        self.assertEqual(len(PRIVILEGE_ESCALATION_VECTORS), 21)
+
+    def test_detect_false_mfa_condition(self):
+        doc = {
+            "Statement": [
+                {
+                    "Sid": "BypassMFAAttempt",
+                    "Effect": "Allow",
+                    "Action": "iam:AttachUserPolicy",
+                    "Resource": "*",
+                    "Condition": {"Bool": {"aws:MultiFactorAuthPresent": "false"}}
+                }
+            ]
+        }
+        findings = self.auditor.audit_policy_document(doc)
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0].action, "iam:AttachUserPolicy")
+        self.assertEqual(findings[0].severity, "CRITICAL")
+
+    def test_detect_wildcard_service_escalation(self):
+        doc = {
+            "Statement": [
+                {
+                    "Sid": "WildcardIAM",
+                    "Effect": "Allow",
+                    "Action": "iam:*",
+                    "Resource": "*"
+                }
+            ]
+        }
+        findings = self.auditor.audit_policy_document(doc)
+        escalation_findings = [f for f in findings if f.category == "Privilege Escalation Vector"]
+        # iam:* must trigger all iam:* escalation primitives (e.g., CreatePolicyVersion, AttachUserPolicy, etc.)
+        self.assertGreaterEqual(len(escalation_findings), 10)
+
+    def test_detect_notaction_grant(self):
+        doc = {
+            "Statement": [
+                {
+                    "Sid": "AllowNotAction",
+                    "Effect": "Allow",
+                    "NotAction": ["iam:*"],
+                    "Resource": "*"
+                }
+            ]
+        }
+        findings = self.auditor.audit_policy_document(doc)
+        notaction_findings = [f for f in findings if f.category == "Overpermissive NotAction Grant"]
+        self.assertEqual(len(notaction_findings), 1)
+
 
 if __name__ == "__main__":
     unittest.main()
