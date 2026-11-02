@@ -1,5 +1,6 @@
 # AWS IAM Least Privilege Auditor 🔑
 
+[![CI/CD Pipeline](https://github.com/GarciaVillenaLuis/aws-iam-least-privilege-auditor/actions/workflows/ci.yml/badge.svg)](https://github.com/GarciaVillenaLuis/aws-iam-least-privilege-auditor/actions/workflows/ci.yml)
 [![CIEM Engine](https://img.shields.io/badge/CIEM%20Engine-v1.8%20Active-brightgreen?style=flat-square&logo=amazoniam&logoColor=white)](https://github.com/GarciaVillenaLuis/aws-iam-least-privilege-auditor)
 [![Hygiene Score](https://img.shields.io/badge/Credential%20Hygiene-97.8%2F100-blue?style=flat-square&logo=securityscorecard&logoColor=white)](https://github.com/GarciaVillenaLuis/aws-iam-least-privilege-auditor)
 [![Python Version](https://img.shields.io/badge/Python-3.9%2B-blue?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
