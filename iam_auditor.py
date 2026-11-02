@@ -10,13 +10,14 @@ License: Apache-2.0
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import os
 import sys
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Optional, Set
 
-# Recognized IAM Privilege Escalation Primitives (Rhino Security / Bishop Fox / MITRE ATT&CK T1078.004 & T1098)
+# Recognized 21 IAM Privilege Escalation Primitives (Rhino Security / Bishop Fox / MITRE ATT&CK T1078.004 & T1098)
 PRIVILEGE_ESCALATION_VECTORS: Dict[str, Dict[str, Any]] = {
     "iam:CreatePolicyVersion": {
         "name": "Create Policy Version & Alter Defaults",
@@ -58,10 +59,30 @@ PRIVILEGE_ESCALATION_VECTORS: Dict[str, Dict[str, Any]] = {
         "severity": "CRITICAL",
         "description": "Allows injecting custom inline policy into target role."
     },
+    "iam:PutGroupPolicy": {
+        "name": "Put Inline Group Policy",
+        "severity": "CRITICAL",
+        "description": "Allows injecting custom inline admin policy into a group the user belongs to."
+    },
+    "iam:AddUserToGroup": {
+        "name": "Add User to Privileged Group",
+        "severity": "CRITICAL",
+        "description": "Allows adding target user to an existing administrative group (e.g., Admins)."
+    },
+    "iam:UpdateAssumeRolePolicy": {
+        "name": "Alter Trust Relationship Policy",
+        "severity": "CRITICAL",
+        "description": "Allows modifying role trust relationship to allow current user to assume it."
+    },
     "iam:CreateAccessKey": {
         "name": "Create Access Key for Another User",
         "severity": "CRITICAL",
         "description": "Enables generating secret access keys for administrative users without active credentials."
+    },
+    "iam:UpdateAccessKey": {
+        "name": "Activate Dormant Access Key",
+        "severity": "HIGH",
+        "description": "Enables activating an inactive administrative access key to hijack credentials."
     },
     "iam:CreateLoginProfile": {
         "name": "Create Console Login Profile",
@@ -73,27 +94,57 @@ PRIVILEGE_ESCALATION_VECTORS: Dict[str, Dict[str, Any]] = {
         "severity": "HIGH",
         "description": "Allows resetting passwords of existing administrator accounts."
     },
-    "iam:UpdateAssumeRolePolicy": {
-        "name": "Alter Trust Relationship Policy",
-        "severity": "CRITICAL",
-        "description": "Allows modifying role trust relationship to allow current user to assume it."
-    },
     "lambda:CreateFunction": {
         "name": "Create Lambda with Elevated Role",
         "severity": "HIGH",
         "description": "Enables creating Lambda function attached to admin role to run arbitrary escalation code."
+    },
+    "lambda:UpdateFunctionCode": {
+        "name": "Modify Lambda Code Under High-Privilege Role",
+        "severity": "HIGH",
+        "description": "Allows modifying code of an existing Lambda function running with administrative role permissions."
     },
     "glue:CreateDevEndpoint": {
         "name": "Create Glue Dev Endpoint with Role",
         "severity": "HIGH",
         "description": "Allows creating AWS Glue development endpoint attached to high-privilege role."
     },
+    "glue:UpdateDevEndpoint": {
+        "name": "Alter Glue Dev Endpoint Implementation",
+        "severity": "HIGH",
+        "description": "Allows pointing Glue dev endpoint to adversary script executing with attached role."
+    },
     "cloudformation:CreateStack": {
         "name": "Create CloudFormation Stack with Role",
         "severity": "HIGH",
         "description": "Deploys CloudFormation stack utilizing an existing role to create admin resources."
+    },
+    "ec2:RunInstances": {
+        "name": "Launch EC2 Instance with Privileged Role",
+        "severity": "HIGH",
+        "description": "Allows launching EC2 instances with high-privilege instance profiles to access metadata credentials."
     }
 }
+
+
+def check_mfa_enforced(condition_block: Dict[str, Any]) -> bool:
+    """Verifies that MFA is strictly required via aws:MultiFactorAuthPresent=true."""
+    if not isinstance(condition_block, dict):
+        return False
+    for operator, subdict in condition_block.items():
+        if not isinstance(subdict, dict):
+            continue
+        op_lower = operator.lower()
+        if op_lower in ("bool", "boolifexists"):
+            for key, val in subdict.items():
+                if key.lower() == "aws:multifactorauthpresent":
+                    if isinstance(val, bool) and val is True:
+                        return True
+                    if isinstance(val, str) and val.strip().lower() == "true":
+                        return True
+                    if isinstance(val, list) and any(str(v).strip().lower() == "true" for v in val):
+                        return True
+    return False
 
 
 @dataclass
@@ -124,7 +175,7 @@ class IAMAuditor:
 
         for stmt in statements:
             effect = stmt.get("Effect", "")
-            if effect != "Allow":
+            if str(effect).strip().lower() != "allow":
                 continue
 
             sid = stmt.get("Sid", "UnnamedStatement")
@@ -133,6 +184,19 @@ class IAMAuditor:
                 actions = [raw_actions]
             else:
                 actions = list(raw_actions)
+
+            not_actions = stmt.get("NotAction", [])
+            if not_actions:
+                findings.append(Finding(
+                    category="Overpermissive NotAction Grant",
+                    severity="CRITICAL",
+                    policy_name=policy_name,
+                    statement_sid=sid,
+                    action=f"NotAction: {not_actions}",
+                    resource="*",
+                    description="Statement uses 'NotAction' with Effect=Allow, implicitly granting almost all AWS APIs.",
+                    remediation="Replace NotAction allow statements with explicit, enumerated least-privilege Action lists."
+                ))
 
             raw_resources = stmt.get("Resource", [])
             if isinstance(raw_resources, str):
@@ -169,13 +233,16 @@ class IAMAuditor:
                     ))
 
             # 2. Detect Privilege Escalation Primitives
-            for act in actions:
-                for prim, meta in PRIVILEGE_ESCALATION_VECTORS.items():
-                    if act == "*" or act.lower() == prim.lower():
-                        # Check conditions
-                        conditions = stmt.get("Condition", {})
-                        has_mfa = "aws:MultiFactorAuthPresent" in str(conditions)
-                        if not has_mfa:
+            has_mfa = check_mfa_enforced(stmt.get("Condition", {}))
+            if not has_mfa:
+                matched_prims: Set[str] = set()
+                for act in actions:
+                    act_clean = act.strip()
+                    for prim, meta in PRIVILEGE_ESCALATION_VECTORS.items():
+                        if prim in matched_prims:
+                            continue
+                        if act_clean == "*" or fnmatch.fnmatch(prim.lower(), act_clean.lower()):
+                            matched_prims.add(prim)
                             findings.append(Finding(
                                 category="Privilege Escalation Vector",
                                 severity=meta["severity"],
