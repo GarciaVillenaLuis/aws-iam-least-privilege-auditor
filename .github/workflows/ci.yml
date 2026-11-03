@@ -1,8 +1,13 @@
 name: CI & IAM Least Privilege Auditor
 on: [push, pull_request]
+
+permissions:
+  contents: read
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
