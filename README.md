@@ -104,3 +104,8 @@ python -m unittest tests/test_iam_auditor.py
 
 Continuous account scanning and credential hygiene metrics are published in:
 - [`audits/iam_least_privilege_matrix.json`](./audits/iam_least_privilege_matrix.json)
+
+
+## 🔒 Security Governance & CodeQL SAST Baseline
+
+This repository enforces continuous semantic code analysis via official **GitHub CodeQL** and automated zero-vulnerability security baselines for all multi-cloud governance modules.
