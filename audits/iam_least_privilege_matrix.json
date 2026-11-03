@@ -6,8 +6,8 @@
   "metrics": {
     "overprivileged_roles_detected": 2,
     "wildcard_action_grants": 0,
-    "mfa_enforcement_ratio": "100%",
-    "credential_hygiene_score": 97.8
+    "security_posture_compliance_ratio": "100%",
+    "account_hygiene_index": 97.8
   },
   "status": "ACTIVE_GOVERNANCE"
 }
