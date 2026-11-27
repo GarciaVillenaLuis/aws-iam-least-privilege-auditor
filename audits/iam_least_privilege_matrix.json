@@ -1,5 +1,5 @@
 {
-  "last_scan_utc": "2026-11-23T07:30:21.290Z",
+  "last_scan_utc": "2026-11-27T07:30:26.001Z",
   "engine": "CIEM-Policy-Evaluator-v1.8",
   "accounts_scanned": 14,
   "identities_analyzed": 420,
@@ -7,10 +7,7 @@
     "overprivileged_roles_detected": 1,
     "wildcard_action_grants": 0,
     "mfa_enforcement_ratio": "100%",
-    "credential_hygiene_score": 98.8
+    "credential_hygiene_score": 98.1
   },
-  "status": "ACTIVE_GOVERNANCE",
-  "last_sync_utc": "2026-11-24T09:17:23Z",
-  "telemetry_seq": 1,
-  "mosaic_seq": 14
+  "status": "ACTIVE_GOVERNANCE"
 }
