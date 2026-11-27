@@ -1,5 +1,5 @@
 {
-  "last_scan_utc": "2026-11-27T07:30:26.001Z",
+  "last_scan_utc": "2026-11-27T07:30:47.065Z",
   "engine": "CIEM-Policy-Evaluator-v1.8",
   "accounts_scanned": 14,
   "identities_analyzed": 420,
@@ -7,7 +7,7 @@
     "overprivileged_roles_detected": 1,
     "wildcard_action_grants": 0,
     "mfa_enforcement_ratio": "100%",
-    "credential_hygiene_score": 98.1
+    "credential_hygiene_score": 98.9
   },
   "status": "ACTIVE_GOVERNANCE"
 }
